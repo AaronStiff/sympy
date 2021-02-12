@@ -279,11 +279,30 @@ class Add(Expr, AssocOp):
             # s is an expression with number factor extracted
             # let's collect terms with the same s, so e.g.
             # 2*x**2 + 3*x**2  ->  5*x**2
+            from sympy.functions.elementary.complexes import re, im
+            from sympy import I, Wild
+
             if s in terms:
                 terms[s] += c
                 if terms[s] is S.NaN and not extra:
                     # we know for sure the result will be nan
                     return [S.NaN], [], None
+            # combine real and imaginary parts of complex number (issue #18271)
+            elif s.match(I*im(Wild('z'))) or s.match(re(Wild('z'))):
+                if isinstance(s, re):
+                    var = s.args[0]
+                    other_part = I*im(var)
+                else:
+                    var = s.as_ordered_factors()[1].args[0]
+                    other_part = re(var)
+                if other_part not in terms:
+                    terms[s] = c
+                elif not terms.get(var, False):
+                    terms[var] = c
+                    terms.pop(other_part)
+                else:
+                    terms[var] += c
+                    terms.pop(other_part)
             else:
                 terms[s] = c
 
